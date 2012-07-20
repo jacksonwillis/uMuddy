@@ -1,4 +1,5 @@
 *.gb
 *.exe
 notes.h
-make.bat
+*.bat
+freq_gen*
