@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <gb/gb.h>
 
-#define UMUDDY_VERSION "0.0.1"
+#define UMUDDY_VERSION "0.0.2"
 
 #define PULSE_12_5 // UNKNOWN
 #define PULSE_25 0x20
