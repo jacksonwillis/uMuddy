@@ -1,27 +1,37 @@
 #include <stdio.h>
 #include <gb/gb.h>
-#include "notes.h"
 
 #define UMUDDY_VERSION "0.0.1"
 
-#define PRESSED(KEY) keys & J_## KEY
-#define SOUND_ON() NR12_REG=0xF0
-#define SOUND_OFF() NR12_REG=0
-#define SOUND_INIT() NR50_REG=0xFF;NR51_REG=0xFF;NR52_REG=0x80;
 #define PULSE_12_5 // UNKNOWN
 #define PULSE_25 0x20
 #define PULSE_50 0xA0
 #define PULSE_WIDTH(N) NR11_REG=PULSE_## N
-#define NOTE_DELAY 50
 
-const char *scale[] = { ".","C3","D3","E3","F3","G3","A3","B3","C4" };
+const int note_frequencies[] = {44,262,457,546,710,856,986,1045,1155,1252,1297,1379,1452,1517,1546};
+const char *note_names[] = {" . ","C 3","D 3","E 3","F 3","G 3","A 3","B 3","C 4","D 4","E 4","F 4","G 4","A 4","B 4","C 5","D 5","E 5","F 5","G 5","A 5","B 5"};
 
-int octave=0;
-int pulse_mode=0;
-
-void play_freq(int f) { NR13_REG=(unsigned char)f;NR14_REG=0x80|(f>>8); }
+// we're only using channel one.
+void sound_on() { NR12_REG = 0xFF; } // volume all the way up
+void sound_off() { NR12_REG = 0; } // volume set to 0
+void sound_init() { NR50_REG = 0xFF; NR51_REG = 0xFF; NR52_REG = 0x80; }
+void play_freq(int f) { NR13_REG = (unsigned char)f; NR14_REG = 0x80|(f>>8); }
 void play_note(int n) { play_freq(note_frequencies[n - 1]); }
 
+/*
+input: data from joypad();
+returns: integer between 0 and 8.
+if no keys on d-pad are pressed, it returns 0.
+else, returns number corresponding to this diagram:
+
+      7
+  8   __  6
+   __|  |__
+1 |__    __| 5
+   2 |__| 4
+      3
+*/
+#define PRESSED(KEY) keys & J_## KEY
 int scale_position(UBYTE keys) {
 	if (PRESSED(LEFT)) {
 		if (PRESSED(UP)) {
@@ -50,6 +60,9 @@ int scale_position(UBYTE keys) {
 	}
 }
 
+int pulse_mode = 0;
+int octave = 0; // is note raised an octave?
+
 void select_menu() {
 	pulse_mode = (pulse_mode + 1) % 2; // 3;
 
@@ -77,13 +90,13 @@ void select_menu() {
 }
 
 void main() {
-	int this_note, last_note = 0;
+	int menu_mode, this_note, last_note = 0;
 	UBYTE keys;
 	
 	printf("    uMuddy %s\n\n", UMUDDY_VERSION);
 	printf("github.com/\n   jacksonwillis/\n              uMuddy\n");
 	
-	SOUND_INIT();
+	sound_init();
 	
 	while (1) {
 		keys = joypad();
@@ -93,23 +106,29 @@ void main() {
 			printf("\n* octave +%d\n", octave);
 			waitpadup();
 		} else if (PRESSED(SELECT)) {
+			menu_mode = 1;
 			select_menu();
 		}
 		
 		this_note = scale_position(keys);
+		
+		if (this_note && octave) this_note += 7;
+		if (this_note && PRESSED(A)) this_note += 4;
 
 		if (this_note != last_note) {
-			printf("%s ", scale[this_note]);
+			printf("%s ", note_names[this_note]);
 		
-			if (this_note != 0) {
-				if (this_note != last_note) SOUND_ON();
-				play_note(octave ? this_note + 7 : this_note);	
+			if (this_note) {
+				if (this_note != last_note) sound_on();
+				play_note(this_note);	
 			} else {
-				SOUND_OFF();
+				sound_off();
 			}
 		}
 
 		last_note = this_note;
-		delay(NOTE_DELAY);
+		
+		// wait for next input, accuracy of 50ms
+		delay(50);
 	}
 }
